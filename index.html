@@ -37,11 +37,13 @@
   <!-- Google Fonts: Plus Jakarta Sans & Noto Sans Devanagari -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Noto+Sans+Devanagari:wght@400;500;600;700;800;900&family=Noto+Sans+Bengali:wght@400;500;600;700;800;900&family=Noto+Sans+Telugu:wght@400;500;600;700;800;900&family=Noto+Sans+Tamil:wght@400;500;600;700;800;900&family=Noto+Sans+Gujarati:wght@400;500;600;700;800;900&family=Noto+Sans+Arabic:wght@400;500;600;700;800;900&family=Noto+Sans+Kannada:wght@400;500;600;700;800;900&family=Noto+Sans+Oriya:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- Isolated 10-Language Indian Localization Engine -->
+  <script src="localization.js"></script>
 
   <style>
     body {
-      font-family: 'Plus Jakarta Sans', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Plus Jakarta Sans', 'Noto Sans Devanagari', 'Noto Sans Bengali', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Gujarati', 'Noto Sans Arabic', 'Noto Sans Kannada', 'Noto Sans Oriya', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: #F8FAF9;
       color: #1A2E1F;
     }
@@ -102,6 +104,8 @@
 
   <script type="text/babel">
     const { useState, useEffect, useMemo, useRef } = React;
+    const i18n = window.GRAMIN_I18N;
+    const t = (key, l) => (i18n && i18n.t) ? i18n.t(key, l) : key;
 
     // --- FUTURE FARMING METHODS DATA ---
     const futureFarmingMethods = {
@@ -405,14 +409,19 @@
       const [partnerModal, setPartnerModal] = useState(null);
 
       // Commodities for Adla-Badli
-      const commodities = [
-        { id: "wheat", nameEn: "Wheat (Gahun)", nameHi: "गेहूं (गहूं)", icon: "🌾", unitValue: 100 },
-        { id: "rice", nameEn: "Rice (Chawal)", nameHi: "चावल (धान)", icon: "🍚", unitValue: 100 },
-        { id: "pump", nameEn: "Water Pump (5HP)", nameHi: "पानी का पंप (5HP)", icon: "⚡", unitValue: 300 },
-        { id: "tractor", nameEn: "Tractor Hours (2 hrs)", nameHi: "ट्रैक्टर जुताई (2 घंटे)", icon: "🚜", unitValue: 350 },
-        { id: "mustard", nameEn: "Mustard Seed (Sarson)", nameHi: "सरसों बीज", icon: "🌱", unitValue: 120 },
-        { id: "sprayer", nameEn: "Battery Sprayer", nameHi: "बैटरी स्प्रेयर", icon: "💦", unitValue: 180 }
-      ];
+      const commodities = useMemo(() => {
+        if (i18n && i18n.getCommodities) {
+          return i18n.getCommodities(lang);
+        }
+        return [
+          { id: "wheat", name: "Wheat", icon: "🌾", unitValue: 100 },
+          { id: "rice", name: "Rice", icon: "🍚", unitValue: 100 },
+          { id: "pump", name: "Water Pump (5HP)", icon: "⚡", unitValue: 300 },
+          { id: "tractor", name: "Tractor Hours (2 hrs)", icon: "🚜", unitValue: 350 },
+          { id: "mustard", name: "Mustard Seed", icon: "🌱", unitValue: 120 },
+          { id: "sprayer", name: "Battery Sprayer", icon: "💦", unitValue: 180 }
+        ];
+      }, [lang]);
 
       const wardsList = [
         "Ward 14 - Thullur & Capital Agro-Belt",
@@ -436,7 +445,7 @@
         }
 
         if (matched) {
-          setRoutingToast(lang === 'en' ? matched.bannerEn : matched.bannerHi);
+          setRoutingToast((matched.banners && (matched.banners[lang] || matched.banners['en'])) || (lang === 'en' ? matched.bannerEn : matched.bannerHi));
           
           if (matched.targetPage === 'futureFarming') {
             if (lower.includes('hydro')) setSelectedFarmingMethod('hydro');
@@ -478,7 +487,7 @@
           const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
           const recognition = new SpeechRec();
           recognitionRef.current = recognition;
-          recognition.lang = lang === 'hi' ? 'hi-IN' : 'en-IN';
+          recognition.lang = (i18n && i18n.SPEECH_LOCALE_MAP && i18n.SPEECH_LOCALE_MAP[lang]) || 'en-IN';
           recognition.continuous = false;
           recognition.interimResults = true;
 
@@ -502,12 +511,11 @@
         } else {
           setIsListening(true);
           setTimeout(() => {
-            const samplePhrases = [
-              "mujhe hydroponics lagana hai",
-              "there is no water from two days in ward 14",
-              "bijli bar bar kat rhi hai",
-              "saanp ne kaat liya",
-              "vertical tower farming"
+            const samplePhrases = (i18n && i18n.UI && i18n.UI[lang] && i18n.UI[lang].samplePhrases) || [
+              "hydroponics farming setup",
+              "water supply issue",
+              "power cut problem",
+              "snake bite emergency"
             ];
             const chosen = samplePhrases[Math.floor(Math.random() * samplePhrases.length)];
             setVoiceInputText(chosen);
@@ -519,102 +527,48 @@
 
       // --- RESOLVE ACTIVE FIRST AID CONDITION ---
       const activeFirstAid = useMemo(() => {
-        if (!symptomSearchQuery.trim()) {
-          return firstAidDatabase[selectedEmergencyId] || firstAidDatabase.snake;
+        if (i18n && i18n.getFirstAidItem) {
+          return i18n.getFirstAidItem(selectedEmergencyId, lang);
         }
-        const q = symptomSearchQuery.toLowerCase().trim();
-        const found = Object.values(firstAidDatabase).find(item => {
-          return item.tags.some(tag => q.includes(tag)) ||
-                 item.titleEn.toLowerCase().includes(q) ||
-                 item.titleHi.includes(q);
-        });
-        return found || firstAidDatabase.snake;
-      }, [symptomSearchQuery, selectedEmergencyId]);
+        return firstAidDatabase[selectedEmergencyId] || firstAidDatabase.snake;
+      }, [selectedEmergencyId, lang]);
 
       // --- DYNAMIC IRRIGATION ADVISORY BASED ON WEATHER TELEMETRY ---
       const dynamicIrrigationAdvisory = useMemo(() => {
         if (rainChance >= 50) {
           return {
-            statusBadge: lang === 'en' ? 'Active Rainfall / Overcast Detected' : 'बारिश / बादल सक्रिय',
+            statusBadge: t('activeRainfallBadge', lang),
             statusColor: 'bg-emerald-700 text-white',
-            overrideText: lang === 'en'
-              ? 'Status: Active Rainfall detected in Amaravati area. System Override: Irrigation suspended for today—No extra water required.'
-              : 'स्थिति: अमरावती क्षेत्र में बारिश का पूर्वानुमान। सिस्टम निर्देश: आज की सिंचाई स्थगित की जाती है—अतिरिक्त जल की आवश्यकता नहीं।'
+            overrideText: t('activeRainfallText', lang)
           };
         } else if (soilMoisture <= 30) {
           return {
-            statusBadge: lang === 'en' ? 'High Field Evapotranspiration' : 'उच्च वाष्पीकरण / सूखापन',
+            statusBadge: t('highEvapoBadge', lang),
             statusColor: 'bg-amber-600 text-white',
-            overrideText: lang === 'en'
-              ? 'Status: Soil moisture critically low (under 30%). System Recommendation: Schedule 45-minute canal / tubewell irrigation pulse before 17:00 IST dusk.'
-              : 'स्थिति: मिट्टी की नमी 30% से कम। सिस्टम निर्देश: शाम 17:00 बजे से पहले 45 मिनट की नलकूप/नहर सिंचाई करें।'
+            overrideText: t('highEvapoText', lang)
           };
         } else {
           return {
-            statusBadge: lang === 'en' ? 'Optimal Moisture Equilibrium' : 'संतुलित नमी स्तर',
+            statusBadge: t('optimalMoistureBadge', lang),
             statusColor: 'bg-brand-primary text-white',
-            overrideText: lang === 'en'
-              ? 'Status: Soil moisture is optimal at 44–48%. Maintain routine micro-dosing schedule.'
-              : 'स्थिति: मिट्टी की नमी आदर्श स्तर पर है। सामान्य सूक्ष्म सिंचाई जारी रखें।'
+            overrideText: t('optimalMoistureText', lang)
           };
         }
       }, [rainChance, soilMoisture, lang]);
 
       // --- GENERATE FORMAL AMARAVATI MUNICIPAL GRIEVANCE LETTER ---
       const generatedGrievanceLetter = useMemo(() => {
-        const name = signatoryName.trim() || (lang === 'en' ? 'Concerned Resident / Landholder' : 'निवेदक / स्थानीय निवासी');
-        const ward = selectedWard;
-        
-        const subjects = {
-          water: lang === 'en' ? "Urgent Relief Required for Severe 5-Day Water Supply Shortage in Amaravati Ward" : "अमरावती नगर वार्ड में पिछले 5 दिनों से गंभीर पेयजल संकट निवारण हेतु",
-          electricity: lang === 'en' ? "Petition Regarding Chronic Agricultural Grid Power Outages in Amaravati Rural Belt" : "अमरावती कृषि क्षेत्र में अघोषित विद्युत कटौती समाधान हेतु",
-          road: lang === 'en' ? "Immediate Pothole Repair Requisition on Mandi Transit Corridor, Amaravati District" : "अमरावती मुख्य मंडी संपर्क मार्ग के गड्ढों की तत्काल मरम्मत बाबत",
-          canal: lang === 'en' ? "Urgent Silt Clearance & Water Release Requisition for Krishna Canal Feeder" : "कृष्णा नहर फीडर से गाद निकासी व टेल-एंड जल प्रवाह सुनिश्चित करने हेतु"
-        };
-
-        const subject = subjects[selectedIssue] || subjects.water;
-
-        if (lang === 'en') {
-          let detail = "";
-          if (selectedIssue === 'water') {
-            detail = `our locality within ${ward} is experiencing a severe disruption in municipal potable water supply for the past 5 consecutive days. The local overhead booster pumps have failed, forcing resident families to rely on untreated canal water.`;
-          } else if (selectedIssue === 'electricity') {
-            detail = `unannounced high-voltage load shedding and agricultural feeder tripping are exceeding 8 hours daily across ${ward}, paralyzing tubewell irrigation during critical crop stages.`;
-          } else if (selectedIssue === 'road') {
-            detail = `the primary transit road connecting ${ward} to the central Mandi has developed severe potholes and waterlogged craters, damaging agricultural vehicles and halting transit.`;
-          } else {
-            detail = `heavy siltation and weed accumulation along the Krishna canal secondary branch in ${ward} have completely blocked tail-end agricultural irrigation discharge.`;
-          }
-
-          return {
-            to: "To,\nThe Municipal Commissioner,\nAmaravati Municipal Corporation (AMC),\nGovernment of Andhra Pradesh, Amaravati - 522503.",
-            subject: `Subject: ${subject} - Reg.`,
-            salutation: "Respected Commissioner Sir / Madam,",
-            body: `I, ${name}, a resident landholder of ${ward}, Amaravati, respectfully submit this urgent representation before your esteemed office.\n\nIt is brought to your urgent attention that ${detail}\n\nDespite verbal intimations to the local ward secretariat office, no corrective measures have been taken so far. In view of the critical hardship faced by residents, I humbly request your good office to instruct the Municipal Engineering & Public Health Wing to conduct an immediate on-site inspection and restore normal public services.`,
-            signOff: `Yours faithfully,\n\n${name}\nResident Signatory, ${ward}\nAmaravati Municipal Corporation, Andhra Pradesh\nRef: #AMC-GRM-2026-912`,
-            fullText: `To,\nThe Municipal Commissioner,\nAmaravati Municipal Corporation (AMC),\nGovernment of Andhra Pradesh, Amaravati - 522503.\n\nDate: 9/12/2026\n\nSubject: ${subject} - Reg.\n\nRespected Commissioner Sir / Madam,\n\nI, ${name}, a resident landholder of ${ward}, Amaravati, respectfully submit this urgent representation before your esteemed office.\n\nIt is brought to your urgent attention that ${detail}\n\nYours faithfully,\n${name}\n${ward}, Amaravati, Andhra Pradesh\nRef: #AMC-GRM-2026-912`
-          };
-        } else {
-          let detailHi = "";
-          if (selectedIssue === 'water') {
-            detailHi = `हमारे क्षेत्र ${ward} में पिछले 5 दिनों से नगर निगम की पेयजल आपूर्ति पूरी तरह ठप है। मुख्य ओवरहेड वाटर पंप खराब होने से सैकड़ों परिवारों को भारी कठिनाई का सामना करना पड़ रहा है।`;
-          } else if (selectedIssue === 'electricity') {
-            detailHi = `हमारे क्षेत्र ${ward} में प्रतिदिन 8 घंटे से अधिक की अघोषित बिजली कटौती हो रही है, जिससे कृषि पंप और घरेलू कार्य ठप पड़े हैं।`;
-          } else if (selectedIssue === 'road') {
-            detailHi = `अमरावती मुख्य मंडी को जोड़ने वाली सड़क ${ward} में जगह-जगह से बुरी तरह क्षतिग्रस्त हो चुकी है, जिससे फसल परिवहन और आवागमन बाधित है।`;
-          } else {
-            detailHi = `${ward} से गुजरने वाली कृष्णा नहर डिस्ट्रीब्यूटरी में भारी गाद जमा होने के कारण अंतिम छोर तक सिंचाई का पानी नहीं पहुंच पा रहा है।`;
-          }
-
-          return {
-            to: "सेवा में,\nश्रीमान नगर आयुक्त महोदय,\nअमरावती नगर निगम (AMC),\nआंध्र प्रदेश सरकार, अमरावती - 522503.",
-            subject: `विषय: ${subject} - संदर्भ में।`,
-            salutation: "आदरणीय महोदय,",
-            body: `मैं, ${name}, निवासी ${ward}, अमरावती, यह आवश्यक आवेदन आपके संज्ञान में ला रहा हूँ।\n\nसविनय निवेदन है कि ${detailHi}\n\nस्थानीय वार्ड सचिवालय में मौखिक शिकायत के उपरांत भी अब तक कोई समाधान नहीं हुआ है। अतः आपसे विनम्र अनुरोध है कि जनहित को ध्यान में रखते हुए संबंधित अभियंताओं को त्वरित निरीक्षण एवं समस्या समाधान के निर्देश देने की कृपा करें।`,
-            signOff: `भवदीय,\n\n${name}\nस्थानीय निवासी, ${ward}\nअमरावती नगर निगम, आंध्र प्रदेश\nडिजिटल आवेदन क्रमांक: #AMC-2026-912`,
-            fullText: `सेवा में,\nश्रीमान नगर आयुक्त महोदय,\nअमरावती नगर निगम (AMC),\nआंध्र प्रदेश सरकार, अमरावती - 522503.\n\nदिनांक: 9/12/2026\n\nविषय: ${subject} - संदर्भ में।\n\nआदरणीय महोदय,\n\nमैं, ${name}, निवासी ${ward}, अमरावती, यह आवश्यक आवेदन आपके संज्ञान में ला रहा हूँ।\n\nसविनय निवेदन है कि ${detailHi}\n\nभवदीय,\n${name}\n${ward}, अमरावती, आंध्र प्रदेश\nRef: #AMC-2026-912`
-          };
+        if (i18n && i18n.getGrievanceLetter) {
+          return i18n.getGrievanceLetter(selectedIssue, selectedWard, signatoryName, lang);
         }
+        return {
+          to: "To,\nThe Municipal Commissioner,\nAmaravati Municipal Corporation (AMC)",
+          subject: "Subject: Urgent Grievance",
+          salutation: "Respected Commissioner Sir / Madam,",
+          body: "Representation regarding public civic infrastructure.",
+          signOff: "Yours faithfully,",
+          fullText: "Official Application Text"
+        };
       }, [selectedIssue, selectedWard, signatoryName, lang]);
 
       // Copy Letter
@@ -655,7 +609,9 @@
       const neededObj = commodities.find(c => c.id === neededItem) || commodities[1];
       const parityRatio = (surplusObj.unitValue / neededObj.unitValue).toFixed(2);
 
-      const activeFarmingData = futureFarmingMethods[selectedFarmingMethod] || futureFarmingMethods.tower;
+      const activeFarmingData = (i18n && i18n.getFarmingMethod)
+        ? i18n.getFarmingMethod(selectedFarmingMethod, lang)
+        : (futureFarmingMethods[selectedFarmingMethod] || futureFarmingMethods.tower);
 
       return (
         <div className="min-h-screen flex flex-col bg-[#F8FAF9]">
@@ -679,7 +635,7 @@
                     GraminAI • ग्रामीण साथी
                   </h1>
                   <p className="text-xs text-emerald-100/80 hidden sm:block">
-                    {lang === 'en' ? 'Digital Rural Assist Node • Designed for visual clarity & voice input' : 'डिजिटल ग्रामीण सहायता केंद्र • स्पष्टता एवं आवाज इनपुट हेतु'}
+                    {t('headerSubtitle', lang)}
                   </p>
                 </div>
               </div>
@@ -692,28 +648,29 @@
                     className="bg-white/15 hover:bg-white/25 text-white font-bold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition-all"
                   >
                     <span>🏠</span>
-                    <span>{lang === 'en' ? 'Launchpad Home' : 'मुख्य पृष्ठ'}</span>
+                    <span>{t('homeBtn', lang)}</span>
                   </button>
                 )}
 
-                {/* Language Switcher Pill */}
-                <div className="bg-white/15 p-1 rounded-full flex items-center border border-white/20">
-                  <button 
-                    onClick={() => setLang('en')}
-                    className={`px-3 py-1 text-xs font-extrabold rounded-full transition-all ${
-                      lang === 'en' ? 'bg-white text-brand-primary shadow-md scale-105' : 'text-white/90 hover:text-white'
-                    }`}
+                {/* 10 Major Indian Languages Selection Dropdown */}
+                <div className="relative">
+                  <select
+                    value={lang}
+                    onChange={(e) => setLang(e.target.value)}
+                    aria-label="Select Language"
+                    className="bg-white/20 hover:bg-white/30 text-white font-extrabold text-xs px-3 py-1.5 rounded-xl border border-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer shadow-sm transition-all pr-8 appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:9px_9px] bg-[right_10px_center] bg-no-repeat"
                   >
-                    EN
-                  </button>
-                  <button 
-                    onClick={() => setLang('hi')}
-                    className={`px-3 py-1 text-xs font-extrabold rounded-full transition-all ${
-                      lang === 'hi' ? 'bg-white text-brand-primary shadow-md scale-105' : 'text-white/90 hover:text-white'
-                    }`}
-                  >
-                    हिंदी
-                  </button>
+                    <option value="en" className="text-gray-900 bg-white">English</option>
+                    <option value="hi" className="text-gray-900 bg-white">Hindi (हिंदी)</option>
+                    <option value="bn" className="text-gray-900 bg-white">Bengali (বাংলা)</option>
+                    <option value="mr" className="text-gray-900 bg-white">Marathi (मराठी)</option>
+                    <option value="te" className="text-gray-900 bg-white">Telugu (తెలుగు)</option>
+                    <option value="ta" className="text-gray-900 bg-white">Tamil (தமிழ்)</option>
+                    <option value="gu" className="text-gray-900 bg-white">Gujarati (ગુજરાતી)</option>
+                    <option value="ur" className="text-gray-900 bg-white">Urdu (اردو)</option>
+                    <option value="kn" className="text-gray-900 bg-white">Kannada (ಕನ್ನಡ)</option>
+                    <option value="or" className="text-gray-900 bg-white">Odia (ଓଡ଼ିଆ)</option>
+                  </select>
                 </div>
               </div>
 
@@ -750,15 +707,13 @@
                   <div className="max-w-2xl mx-auto space-y-2">
                     <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-brand-light text-brand-primary text-xs font-extrabold border border-emerald-300">
                       <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-                      {lang === 'en' ? 'AI Voice & Multi-Intent Rural Engine' : 'आवाज आधारित स्मार्ट ग्रामीण सहायक'}
+                      {t('heroBadge', lang)}
                     </span>
                     <h2 className="text-2xl sm:text-4xl font-black text-gray-900 tracking-tight">
-                      {lang === 'en' ? 'How can GraminAI assist you today?' : 'ग्रामीण साथी आपकी क्या सहायता कर सकता है?'}
+                      {t('heroTitle', lang)}
                     </h2>
                     <p className="text-xs sm:text-sm text-gray-600">
-                      {lang === 'en' 
-                        ? 'Tap the microphone or type naturally in English, Hindi, or Hinglish to auto-route to any service.' 
-                        : 'माइक दबाएं या बोलें—सिंचाई, शिकायत, आपातकालीन प्राथमिक उपचार, आधुनिक खेती या उपकरण विनिमय के लिए।'}
+{t('heroSubtitle', lang)}
                     </p>
                   </div>
 
@@ -776,9 +731,7 @@
                         value={voiceInputText}
                         onChange={(e) => setVoiceInputText(e.target.value)}
                         placeholder={
-                          isListening 
-                            ? (lang === 'en' ? '🎙️ Listening... speak now in Hindi or English...' : '🎙️ आवाज सुन रहे हैं... कृपया बोलें...')
-                            : (lang === 'en' ? 'e.g. "hydroponics", "no water for 2 days", "bijli cut", "snake bite", "tractor share"' : 'उदा. "हाइड्रोपोनिक्स", "दो दिन से पानी नहीं आ रहा", "बिजली कट", "सांप ने काटा"')
+                          isListening ? t('searchListening', lang) : t('searchIdle', lang)
                         }
                         className={`w-full bg-white border-3 ${isListening ? 'border-red-500 ring-4 ring-red-100' : 'border-brand-primary'} rounded-2xl pl-5 pr-32 py-4 sm:py-5 text-sm sm:text-lg font-bold text-gray-900 placeholder-gray-400 focus:outline-none shadow-lg transition-all`}
                       />
@@ -816,24 +769,23 @@
                     {/* Quick Voice Demo Trigger Chips */}
                     <div className="flex flex-wrap items-center justify-center gap-2 mt-3 pt-1">
                       <span className="text-[11px] font-bold text-gray-500">
-                        {lang === 'en' ? 'Try speaking:' : 'बोलकर देखें:'}
+                        {t('trySpeaking', lang)}
                       </span>
-                      {[
-                        { en: "Mujhe hydroponics lagana hai", hi: "मुझे हाइड्रोपोनिक्स लगाना है" },
-                        { en: "No water from 2 days", hi: "दो दिन से पानी नहीं आ रहा" },
-                        { en: "Bijli bar bar kat rhi hai", hi: "बिजली बार-बार कट रही है" },
-                        { en: "Saanp ne kaat liya", hi: "सांप ने काट लिया" }
-                      ].map((sample, idx) => (
+                      {((i18n && i18n.UI && i18n.UI[lang] && i18n.UI[lang].samplePhrases) || [
+                        "Hydroponics farming setup",
+                        "No water supply for 2 days",
+                        "Agricultural power cut problem",
+                        "Emergency snake bite first aid"
+                      ]).map((samplePhrase, idx) => (
                         <button
                           key={idx}
                           onClick={() => {
-                            const val = lang === 'en' ? sample.en : sample.hi;
-                            setVoiceInputText(val);
-                            processIntentAndRoute(val);
+                            setVoiceInputText(samplePhrase);
+                            processIntentAndRoute(samplePhrase);
                           }}
                           className="text-[11px] font-semibold bg-white hover:bg-brand-light text-gray-700 hover:text-brand-primary border border-gray-200 px-2.5 py-1 rounded-full shadow-2xs transition-all"
                         >
-                          "{lang === 'en' ? sample.en : sample.hi}"
+                          "{samplePhrase}"
                         </button>
                       ))}
                     </div>
@@ -845,9 +797,9 @@
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-base sm:text-lg font-black text-gray-900 uppercase tracking-wider">
-                      {lang === 'en' ? 'Direct Service Portals' : 'मुख्य सेवा पोर्टल'}
+                      {t('portalsTitle', lang)}
                     </h3>
-                    <span className="text-xs text-gray-500 font-medium">Click any card to launch module</span>
+                    <span className="text-xs text-gray-500 font-medium">{t('portalsSub', lang)}</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -866,17 +818,17 @@
                             Agro-Hydrology
                           </span>
                           <h4 className="text-lg font-black text-gray-950 mt-1">
-                            Climate & Irrigation <br/>
-                            <span className="text-sm font-bold text-gray-500">जलवायु व सिंचाई</span>
+                            {t('cardClimateTitle', lang)} <br/>
+                            <span className="text-sm font-bold text-gray-500">{t('cardClimateSub', lang)}</span>
                           </h4>
                         </div>
                         <p className="text-xs text-gray-600 leading-relaxed">
-                          Fluid area curve, soil moisture optimization (44% target), spatial tracking, and canal dusk schedule alerts.
+                          {t('cardClimateDesc', lang)}
                         </p>
                       </div>
 
                       <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-brand-primary">
-                        <span>Open Spatial Climate Hub</span>
+                        <span>{t('cardClimateAction', lang)}</span>
                         <span className="group-hover:translate-x-1 transition-transform">→</span>
                       </div>
                     </div>
@@ -895,17 +847,17 @@
                             Amaravati AMC Portal
                           </span>
                           <h4 className="text-lg font-black text-gray-950 mt-1">
-                            Grievance Letter <br/>
-                            <span className="text-sm font-bold text-gray-500">शिकायत पत्र प्रारूप</span>
+                            {t('cardGrievanceTitle', lang)} <br/>
+                            <span className="text-sm font-bold text-gray-500">{t('cardGrievanceSub', lang)}</span>
                           </h4>
                         </div>
                         <p className="text-xs text-gray-600 leading-relaxed">
-                          Generate formal legal letters addressed to the Municipal Commissioner, Amaravati AP with dynamic Ward jurisdiction & 1-click copy.
+                          {t('cardGrievanceDesc', lang)}
                         </p>
                       </div>
 
                       <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-brand-primary">
-                        <span>Draft Formal Letter</span>
+                        <span>{t('cardGrievanceAction', lang)}</span>
                         <span className="group-hover:translate-x-1 transition-transform">→</span>
                       </div>
                     </div>
@@ -924,17 +876,17 @@
                             Emergency Protocols
                           </span>
                           <h4 className="text-lg font-black text-gray-950 mt-1">
-                            First-Aid Guide <br/>
-                            <span className="text-sm font-bold text-gray-500">प्राथमिक उपचार गाइड</span>
+                            {t('cardFirstAidTitle', lang)} <br/>
+                            <span className="text-sm font-bold text-gray-500">{t('cardFirstAidSub', lang)}</span>
                           </h4>
                         </div>
                         <p className="text-xs text-gray-600 leading-relaxed">
-                          GPS hospital finder, WhatsApp SOS broadcast, step-by-step numbered actions, and "WHAT NOT TO DO" warnings.
+                          {t('cardFirstAidDesc', lang)}
                         </p>
                       </div>
 
                       <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-red-600">
-                        <span>Access Emergency Care</span>
+                        <span>{t('cardFirstAidAction', lang)}</span>
                         <span className="group-hover:translate-x-1 transition-transform">→</span>
                       </div>
                     </div>
@@ -953,17 +905,17 @@
                             Mandi Barter Network
                           </span>
                           <h4 className="text-lg font-black text-gray-950 mt-1">
-                            Adla-Badli Share <br/>
-                            <span className="text-sm font-bold text-gray-500">अदला-बदली शेयर</span>
+                            {t('cardAdlaBadliTitle', lang)} <br/>
+                            <span className="text-sm font-bold text-gray-500">{t('cardAdlaBadliSub', lang)}</span>
                           </h4>
                         </div>
                         <p className="text-xs text-gray-600 leading-relaxed">
-                          Community equipment exchange, tractor/pump sharing, mandi barter parity calculation, and peer-to-peer village board.
+                          {t('cardAdlaBadliDesc', lang)}
                         </p>
                       </div>
 
                       <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-brand-primary">
-                        <span>View Village Board</span>
+                        <span>{t('cardAdlaBadliAction', lang)}</span>
                         <span className="group-hover:translate-x-1 transition-transform">→</span>
                       </div>
                     </div>
@@ -990,17 +942,17 @@
                         </span>
                       </div>
                       <h4 className="text-xl sm:text-2xl font-black text-gray-950 mt-1 flex flex-wrap items-center gap-2">
-                        Advanced Future Farming
-                        <span className="text-brand-primary font-bold text-base sm:text-lg">• आधुनिक खेती प्रणाली</span>
+                        {t('futureFarmingTitle', lang)}
+                        <span className="text-brand-primary font-bold text-base sm:text-lg">• {t('futureFarmingSub', lang)}</span>
                       </h4>
                       <p className="text-xs sm:text-sm text-gray-600 mt-1 max-w-2xl">
-                        Interactive blueprints for Stacked Vertical Towers, NFT Hydroponics, and Aeroponics with direct verified marketplace links (UrbanKisaan, Kryzen, Barton Breeze) and 50%–75% subsidies.
+                        {t('futureFarmingDesc', lang)}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center space-x-2 text-sm font-black text-brand-primary shrink-0 self-end sm:self-center bg-white px-4 py-2.5 rounded-xl border border-emerald-300 shadow-xs group-hover:bg-brand-primary group-hover:text-white transition-all">
-                    <span>Explore Setup Blueprints</span>
+                    <span>{t('futureFarmingAction', lang)}</span>
                     <span className="text-lg group-hover:translate-x-1.5 transition-transform">→</span>
                   </div>
                 </div>
@@ -1025,7 +977,7 @@
                     }`}
                   >
                     <span>🌤️</span>
-                    <span className="truncate">{lang === 'en' ? 'Climate & Spatial' : 'जलवायु व नक्शा'}</span>
+                    <span className="truncate">{t('tabClimate', lang)}</span>
                   </button>
 
                   <button
@@ -1037,7 +989,7 @@
                     }`}
                   >
                     <span>📜</span>
-                    <span className="truncate">{lang === 'en' ? 'Grievance Letter' : 'शिकायत पत्र (AMC)'}</span>
+                    <span className="truncate">{t('tabGrievance', lang)}</span>
                   </button>
 
                   <button
@@ -1049,7 +1001,7 @@
                     }`}
                   >
                     <span>🏥</span>
-                    <span className="truncate">{lang === 'en' ? 'First-Aid & SOS' : 'प्राथमिक उपचार व SOS'}</span>
+                    <span className="truncate">{t('tabFirstAid', lang)}</span>
                   </button>
 
                   <button
@@ -1061,7 +1013,7 @@
                     }`}
                   >
                     <span>🤝</span>
-                    <span className="truncate">{lang === 'en' ? 'Adla-Badli Share' : 'अदला-बदली शेयर'}</span>
+                    <span className="truncate">{t('tabAdlaBadli', lang)}</span>
                   </button>
 
                   <button
@@ -1073,7 +1025,7 @@
                     }`}
                   >
                     <span>🚀</span>
-                    <span className="truncate">{lang === 'en' ? 'Future Farming' : 'आधुनिक खेती'}</span>
+                    <span className="truncate">{t('tabFutureFarming', lang)}</span>
                   </button>
                 </div>
 
@@ -1090,7 +1042,7 @@
                         <div className="flex items-center space-x-2">
                           <span className="text-xl">🛰️</span>
                           <h3 className="text-sm sm:text-base font-black text-gray-900">
-                            {lang === 'en' ? 'Real-Time Spatial Field Tracker' : 'लाइव सैटेलाइट व भू-स्थानिक ट्रैकर'}
+                            {t('satelliteTracker', lang)}
                           </h3>
                         </div>
                         <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -1106,7 +1058,7 @@
                         <div className="flex justify-between items-center mb-1 text-xs font-semibold text-gray-600">
                           <span className="flex items-center gap-1.5 font-bold">
                             <span className="w-2 h-2 rounded-full bg-brand-primary"></span>
-                            {lang === 'en' ? 'Optimal Field Moisture Matrix' : 'खेत नमी निगरानी मैट्रिक्स'}
+                            {t('moistureMatrix', lang)}
                           </span>
                           <span className="text-emerald-900 font-bold bg-white/80 px-2 py-0.5 rounded shadow-xs">
                             Optimal: 44%
@@ -1139,7 +1091,7 @@
                       <div className="grid grid-cols-2 gap-3 pt-1">
                         <div className="space-y-1">
                           <div className="flex justify-between items-center text-xs font-bold text-gray-800">
-                            <label htmlFor="dryness-slider-sp">{lang === 'en' ? 'Field Dryness:' : 'खेत सूखापन:'}</label>
+                            <label htmlFor="dryness-slider-sp">{t('fieldDryness', lang)}</label>
                             <span className="text-xs font-black text-brand-primary">{soilMoisture}%</span>
                           </div>
                           <input
@@ -1152,7 +1104,7 @@
 
                         <div className="space-y-1">
                           <div className="flex justify-between items-center text-xs font-bold text-gray-800">
-                            <label htmlFor="rain-slider-sp">{lang === 'en' ? 'Rain Forecast:' : 'बारिश संभावना:'}</label>
+                            <label htmlFor="rain-slider-sp">{t('rainForecast', lang)}</label>
                             <span className="text-xs font-black text-brand-primary">{rainChance}%</span>
                           </div>
                           <input
@@ -1174,7 +1126,7 @@
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-black uppercase text-brand-primary flex items-center gap-1.5">
                             <span>💧</span>
-                            <span>{lang === 'en' ? 'Dynamic Irrigation Advisory' : 'स्वचालित सिंचाई परामर्श'}</span>
+                            <span>{t('advisoryTitle', lang)}</span>
                           </span>
                           <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${dynamicIrrigationAdvisory.statusColor}`}>
                             {dynamicIrrigationAdvisory.statusBadge}
@@ -1190,7 +1142,7 @@
                         <div className="flex items-center justify-between border-b border-gray-100 pb-2">
                           <span className="text-xs font-black uppercase text-gray-900 flex items-center gap-1.5">
                             <span>🧪</span>
-                            <span>{lang === 'en' ? 'Krishna Basin Soil & Nutrient Target' : 'कृष्णा डेल्टा मृदा पोषण ब्लूप्रिंट'}</span>
+                            <span>{t('soilTargetTitle', lang)}</span>
                           </span>
                           <span className="text-[10px] font-bold text-gray-500">Black/Alluvial Variant</span>
                         </div>
@@ -1220,7 +1172,7 @@
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-black uppercase text-amber-900 flex items-center gap-1.5">
                             <span>🐛</span>
-                            <span>{lang === 'en' ? 'Tactical Pest Prevention Calendar' : 'कीट प्रबंधन व रोकथाम कैलेंडर'}</span>
+                            <span>{t('pestCalendarTitle', lang)}</span>
                           </span>
                           <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded">September Cycle</span>
                         </div>
@@ -1235,7 +1187,7 @@
                           className="w-full bg-brand-primary hover:bg-brand-hover text-white text-xs font-extrabold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm active:scale-95"
                         >
                           <span>📞</span>
-                          <span>{lang === 'en' ? 'Contact Regional Agri-Extension Officer' : 'क्षेत्रीय कृषि विस्तार अधिकारी को कॉल करें'}</span>
+                          <span>{t('callOfficerBtn', lang)}</span>
                         </button>
                       </div>
 
@@ -1264,7 +1216,7 @@
 
                       <div className="space-y-2.5">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-gray-600">
-                          {lang === 'en' ? 'STEP 1: PICK THE ISSUE PROFILE' : 'चरण 1: समस्या प्रोफ़ाइल चुनें'}
+                          {t('stepPickIssue', lang)}
                         </h3>
                         
                         <div className="flex flex-wrap gap-2">
@@ -1292,7 +1244,7 @@
 
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-gray-700 block">
-                          {lang === 'en' ? 'Select Municipal Ward / Jurisdiction:' : 'नगर निगम वार्ड / क्षेत्र चुनें:'}
+                          {t('stepPickWard', lang)}
                         </label>
                         <select
                           value={selectedWard}
@@ -1307,7 +1259,7 @@
 
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-gray-700 block">
-                          {lang === 'en' ? 'Your Name / Signatory:' : 'आपका नाम / हस्ताक्षरकर्ता:'}
+                          {t('stepPickSignatory', lang)}
                         </label>
                         <input
                           type="text"
@@ -1356,7 +1308,7 @@
                             copied ? 'bg-emerald-700 text-white' : 'bg-brand-primary hover:bg-brand-hover text-white'
                           }`}
                         >
-                          {copied ? <span>✅ Copied Application Text!</span> : <span>📋 Copy Application Text</span>}
+                          {copied ? <span>{t('copiedBtn', lang)}</span> : <span>{t('copyBtn', lang)}</span>}
                         </button>
 
                         <div className="flex gap-2">
@@ -1400,7 +1352,7 @@
                             </span>
                           </div>
                           <h3 className="text-lg sm:text-xl font-black text-gray-900 mt-0.5">
-                            1-Tap Medical Emergency SOS & Hospital Finder
+                            {t('emergencyBarTitle', lang)}
                           </h3>
                         </div>
 
@@ -1411,7 +1363,7 @@
                             className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-black px-5 py-3 rounded-xl transition-all shadow-md animate-sos-pulse flex items-center gap-2"
                           >
                             <span>🚨</span>
-                            <span>Locate Nearest Hospital (AIIMS Amaravati)</span>
+                            <span>{t('locateHospitalBtn', lang)}</span>
                           </button>
 
                           <button
@@ -1422,7 +1374,7 @@
                             className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-black px-4 py-3 rounded-xl transition-all shadow-md flex items-center gap-1.5"
                           >
                             <span>💬</span>
-                            <span>SOS Family Broadcast</span>
+                            <span>{t('sosBroadcastBtn', lang)}</span>
                           </button>
                         </div>
                       </div>
@@ -1460,7 +1412,7 @@
                           type="text"
                           value={symptomSearchQuery}
                           onChange={(e) => setSymptomSearchQuery(e.target.value)}
-                          placeholder={lang === 'en' ? "Type or say any disease, injury, illness, or symptom..." : "किसी भी बीमारी, चोट या लक्षण का नाम लिखें या बोलें..."}
+                          placeholder={t('symptomPlaceholder', lang)}
                           className="w-full bg-[#F4F9F6] border-2 border-[#BCD8C6] focus:border-brand-primary rounded-2xl px-4 py-3 text-sm sm:text-base font-semibold text-gray-900 placeholder-gray-500 focus:outline-none"
                         />
                       </div>
@@ -1475,13 +1427,13 @@
                           <div>
                             <span className="text-xs uppercase font-bold text-gray-500 block">Immediate Actions</span>
                             <h3 className="text-base sm:text-lg text-gray-900 font-extrabold">
-                              {lang === 'en' ? activeFirstAid.titleEn : activeFirstAid.titleHi}
+                              {activeFirstAid.title || (lang === 'en' ? activeFirstAid.titleEn : activeFirstAid.titleHi)}
                             </h3>
                           </div>
                         </div>
 
                         <div className="space-y-3 pt-1">
-                          {(lang === 'en' ? activeFirstAid.actionsEn : activeFirstAid.actionsHi).map((action, idx) => (
+                          {(activeFirstAid.actions || (lang === 'en' ? activeFirstAid.actionsEn : activeFirstAid.actionsHi)).map((action, idx) => (
                             <div key={idx} className="flex items-start space-x-3.5 p-3.5 rounded-xl bg-gray-50 border border-gray-100">
                               <div className="w-7 h-7 rounded-full bg-red-600 text-white font-black text-sm flex items-center justify-center shrink-0">
                                 {idx + 1}
@@ -1499,12 +1451,12 @@
                           <div className="flex items-center space-x-2 text-amber-900 font-black border-b border-amber-200 pb-2">
                             <span>⚠️</span>
                             <h4 className="text-sm sm:text-base tracking-tight uppercase">
-                              {lang === 'en' ? 'WHAT NOT TO DO' : 'क्या बिल्कुल न करें'}
+                              {t('whatNotToDoTitle', lang)}
                             </h4>
                           </div>
 
                           <div className="space-y-2.5 text-xs sm:text-sm text-amber-950 font-medium">
-                            {(lang === 'en' ? activeFirstAid.dontsEn : activeFirstAid.dontsHi).map((dont, idx) => (
+                            {(activeFirstAid.donts || (lang === 'en' ? activeFirstAid.dontsEn : activeFirstAid.dontsHi)).map((dont, idx) => (
                               <div key={idx} className="flex items-start space-x-2 bg-white/70 p-2.5 rounded-lg border border-amber-200">
                                 <span className="text-red-600 font-bold text-sm shrink-0">✕</span>
                                 <span className="leading-snug">{dont}</span>
@@ -1532,47 +1484,47 @@
                     
                     <div className="lg:col-span-5 glass-card rounded-2xl border border-gray-200/80 p-5 sm:p-6 space-y-6">
                       <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-gray-600 block">YOUR SURPLUS ITEM:</label>
+                        <label className="text-xs font-bold uppercase tracking-wider text-gray-600 block">{t('surplusItemLabel', lang)}</label>
                         <select
                           value={surplusItem}
                           onChange={(e) => setSurplusItem(e.target.value)}
                           className="w-full bg-[#F2F7F4] border border-[#CBDCD0] rounded-xl px-4 py-3 text-sm sm:text-base font-semibold text-gray-800"
                         >
                           {commodities.map(c => (
-                            <option key={c.id} value={c.id}>{c.icon} {lang === 'en' ? c.nameEn : c.nameHi}</option>
+                            <option key={c.id} value={c.id}>{c.icon} {c.name || (lang === 'en' ? c.nameEn : c.nameHi)}</option>
                           ))}
                         </select>
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-gray-600 block">ITEM YOU WANT INSTEAD:</label>
+                        <label className="text-xs font-bold uppercase tracking-wider text-gray-600 block">{t('neededItemLabel', lang)}</label>
                         <select
                           value={neededItem}
                           onChange={(e) => setNeededItem(e.target.value)}
                           className="w-full bg-[#F2F7F4] border border-[#CBDCD0] rounded-xl px-4 py-3 text-sm sm:text-base font-semibold text-gray-800"
                         >
                           {commodities.map(c => (
-                            <option key={c.id} value={c.id}>{c.icon} {lang === 'en' ? c.nameEn : c.nameHi}</option>
+                            <option key={c.id} value={c.id}>{c.icon} {c.name || (lang === 'en' ? c.nameEn : c.nameHi)}</option>
                           ))}
                         </select>
                       </div>
 
                       <div className="bg-brand-light border border-[#CDE0D3] rounded-2xl p-4 sm:p-5 space-y-4">
-                        <h4 className="text-xs font-bold text-center uppercase tracking-wider text-brand-dark">PROPOSED SHARE CALCULATION</h4>
+                        <h4 className="text-xs font-bold text-center uppercase tracking-wider text-brand-dark">{t('calcTitle', lang)}</h4>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex-1 bg-white rounded-xl p-3 border border-gray-200 text-center shadow-xs">
                             <span className="text-2xl block mb-1">{surplusObj.icon}</span>
-                            <span className="text-xs font-bold text-gray-800 truncate block">{lang === 'en' ? surplusObj.nameEn : surplusObj.nameHi}</span>
+                            <span className="text-xs font-bold text-gray-800 truncate block">{surplusObj.name || (lang === 'en' ? surplusObj.nameEn : surplusObj.nameHi)}</span>
                           </div>
                           <div className="flex flex-col items-center justify-center px-1">
                             <span className="text-base">⇄</span>
                             <span className="bg-brand-primary text-white text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap shadow-xs">
-                              {surplusItem === neededItem ? 'Perfect Equal Exchange' : `${parityRatio}x Fair Value Parity`}
+                              {surplusItem === neededItem ? t('equalExchange', lang) : `${parityRatio}x ${t('fairValueParity', lang)}`}
                             </span>
                           </div>
                           <div className="flex-1 bg-white rounded-xl p-3 border border-gray-200 text-center shadow-xs">
                             <span className="text-2xl block mb-1">{neededObj.icon}</span>
-                            <span className="text-xs font-bold text-gray-800 truncate block">{lang === 'en' ? neededObj.nameEn : neededObj.nameHi}</span>
+                            <span className="text-xs font-bold text-gray-800 truncate block">{neededObj.name || (lang === 'en' ? neededObj.nameEn : neededObj.nameHi)}</span>
                           </div>
                         </div>
                         <p className="text-[11px] text-gray-600 text-center leading-relaxed">
@@ -1587,18 +1539,18 @@
                         }}
                         className="w-full bg-brand-primary hover:bg-brand-hover text-white font-bold py-3.5 px-6 rounded-xl shadow-md transition-all"
                       >
-                        {broadcastSuccess ? '✅ Broadcasted to Mandi!' : 'Broadcast to Local Mandi'}
+                        {broadcastSuccess ? t('broadcastSuccess', lang) : t('broadcastBtn', lang)}
                       </button>
                     </div>
 
                     <div className="lg:col-span-7 glass-card rounded-2xl border border-gray-200/80 p-5 sm:p-6 space-y-6">
                       <div className="border-b border-gray-100 pb-3 flex justify-between items-center">
                         <div>
-                          <h3 className="text-base font-bold text-gray-900">Village Asset Sharing Board (Adla-Badli)</h3>
-                          <p className="text-xs text-gray-500">Community equipment & surplus resources currently available.</p>
+                          <h3 className="text-base font-bold text-gray-900">{t('boardTitle', lang)}</h3>
+                          <p className="text-xs text-gray-500">{t('boardSub', lang)}</p>
                         </div>
                         <span className="text-xs font-bold text-brand-primary bg-brand-light px-2.5 py-1 rounded-full border border-emerald-200">
-                          {listings.length} Active Posts
+                          {listings.length} {t('activePostsBadge', lang)}
                         </span>
                       </div>
 
@@ -1643,7 +1595,7 @@
                         }} 
                         className="bg-gray-50 border border-gray-200/80 rounded-xl p-4 space-y-3"
                       >
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">Post Surplus Asset / Tool</h4>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">{t('postSurplusTitle', lang)}</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <input
                             type="text"
@@ -1664,7 +1616,7 @@
                         <div className="flex justify-between items-center">
                           <span className="text-[11px] text-gray-500">{postSuccess && <span className="text-emerald-700 font-bold">Listing posted!</span>}</span>
                           <button type="submit" className="bg-brand-primary hover:bg-brand-hover text-white text-xs font-bold px-4 py-2 rounded-lg">
-                            Post to Board
+                            {t('postSubmitBtn', lang)}
                           </button>
                         </div>
                       </form>
@@ -1712,17 +1664,16 @@
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-xs font-black uppercase tracking-wider text-gray-700">
-                          {lang === 'en' ? 'Select Modern Farming System:' : 'सटीक कृषि प्रणाली चुनें:'}
+                          {t('selectSystemTitle', lang)}
                         </h3>
-                        <span className="text-[11px] text-gray-500 font-medium">Click to switch blueprint</span>
+                        <span className="text-[11px] text-gray-500 font-medium">{t('switchBlueprintHint', lang)}</span>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        {[
-                          { key: 'tower', data: futureFarmingMethods.tower },
-                          { key: 'hydro', data: futureFarmingMethods.hydro },
-                          { key: 'aero', data: futureFarmingMethods.aero }
-                        ].map(({ key, data }) => {
+                        {['tower', 'hydro', 'aero'].map(key => {
+                          const data = (i18n && i18n.getFarmingMethod) ?
+                            i18n.getFarmingMethod(key, lang) :
+                            (futureFarmingMethods[key] || futureFarmingMethods.tower);
                           const isSelected = selectedFarmingMethod === key;
                           return (
                             <button
@@ -1744,10 +1695,10 @@
                               </div>
                               <div>
                                 <h4 className="text-sm sm:text-base font-black leading-tight">
-                                  {lang === 'en' ? data.nameEn : data.nameHi}
+                                  {data.name || (lang === 'en' ? data.nameEn : data.nameHi)}
                                 </h4>
                                 <span className={`text-xs font-bold mt-1.5 block ${isSelected ? 'text-emerald-200' : 'text-emerald-700'}`}>
-                                  {lang === 'en' ? data.yieldEn : data.yieldHi} • {data.waterSaving}
+                                  {data.yield || (lang === 'en' ? data.yieldEn : data.yieldHi)} • {data.waterSaving}
                                 </span>
                               </div>
                             </button>
@@ -1761,12 +1712,12 @@
                       <div className="flex items-center space-x-3 border-b border-gray-100 pb-3">
                         <span className="text-3xl p-2 bg-emerald-50 rounded-xl border border-emerald-100">{activeFarmingData.icon}</span>
                         <div>
-                          <span className="text-xs uppercase font-bold text-gray-500 block">Assembly Blueprint</span>
+                          <span className="text-xs uppercase font-bold text-gray-500 block">{t('assemblyBlueprintTitle', lang)}</span>
                           <h3 className="text-base sm:text-lg font-black text-gray-900">
-                            {lang === 'en' ? activeFarmingData.nameEn : activeFarmingData.nameHi}
+                            {activeFarmingData.name || (lang === 'en' ? activeFarmingData.nameEn : activeFarmingData.nameHi)}
                           </h3>
                           <p className="text-xs text-gray-600 mt-0.5">
-                            {lang === 'en' ? activeFarmingData.descEn : activeFarmingData.descHi}
+                            {activeFarmingData.desc || (lang === 'en' ? activeFarmingData.descEn : activeFarmingData.descHi)}
                           </p>
                         </div>
                       </div>
@@ -1774,9 +1725,9 @@
                       {/* Progressive Steps Checklist */}
                       <div className="space-y-3">
                         <span className="text-xs font-bold uppercase tracking-wider text-gray-600 block">
-                          {lang === 'en' ? 'Sequential Setup Milestones:' : 'चरणबद्ध असेंबली व सेटअप चेकलिस्ट:'}
+                          {t('sequentialMilestones', lang)}
                         </span>
-                        {(lang === 'en' ? activeFarmingData.stepsEn : activeFarmingData.stepsHi).map((st, idx) => (
+                        {(activeFarmingData.steps || (lang === 'en' ? activeFarmingData.stepsEn : activeFarmingData.stepsHi)).map((st, idx) => (
                           <div key={idx} className="flex items-start space-x-3.5 p-3.5 rounded-xl bg-gray-50/90 border border-gray-100">
                             <div className="w-7 h-7 rounded-full bg-brand-primary text-white font-black text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
                               {idx + 1}
@@ -1793,11 +1744,11 @@
                         <div className="flex items-center space-x-2 text-amber-900 font-black">
                           <span className="text-lg">⚠️</span>
                           <h5 className="text-xs sm:text-sm tracking-tight uppercase">
-                            {lang === 'en' ? 'CRITICAL MISTAKE TO AVOID' : 'क्या गलती न करें (तकनीकी विफलता चेतावनी)'}
+                            {t('criticalMistakeTitle', lang)}
                           </h5>
                         </div>
                         <p className="text-xs sm:text-sm text-amber-950 font-semibold leading-relaxed">
-                          {lang === 'en' ? activeFarmingData.mistakeEn : activeFarmingData.mistakeHi}
+                          {activeFarmingData.mistake || (lang === 'en' ? activeFarmingData.mistakeEn : activeFarmingData.mistakeHi)}
                         </p>
                       </div>
                     </div>
@@ -1807,10 +1758,10 @@
                       <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
                         <div>
                           <h3 className="text-base font-black text-gray-900">
-                            {lang === 'en' ? 'Unified Procurement & Subsidy Hub' : 'उपकरण खरीद, वेंडर संपर्क एवं सरकारी सब्सिडी हब'}
+                            {t('procurementHubTitle', lang)}
                           </h3>
                           <p className="text-xs text-gray-500">
-                            {lang === 'en' ? 'Direct links to vetted setup partners, verified online marketplaces, and state financial aid.' : 'प्रमाणित इंस्टॉलेशन पार्टनर, डिजिटल पार्ट्स खरीद और नाबार्ड सहायता।'}
+                            {t('procurementHubSub', lang)}
                           </p>
                         </div>
                         <span className="text-xs font-bold text-brand-primary bg-brand-light px-2.5 py-1 rounded-full border border-emerald-200">
@@ -2046,7 +1997,7 @@
           {/* ================= DESKTOP FOOTER ================= */}
           <footer className="bg-white border-t border-gray-200/80 py-4 mt-8 text-center text-xs text-gray-600 font-medium">
             <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-              <span>Digital Rural Assist Node • Designed for visual clarity, voice-first navigation, and offline access</span>
+              <span>{t('footerLeft', lang)}</span>
               <span className="text-gray-600">GraminAI • Amaravati Edition v6.0</span>
             </div>
           </footer>
